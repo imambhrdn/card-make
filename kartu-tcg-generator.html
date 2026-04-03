@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TCG Card PDF Generator</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0e10;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: #2e2e38;
+    --accent: #7c6dfa;
+    --accent2: #a78bfa;
+    --text: #f0f0f4;
+    --muted: #6b6b80;
+    --muted2: #9090a8;
+    --success: #22c55e;
+    --danger: #f87171;
+    --card-radius: 12px;
+    --font-mono: 'Space Mono', monospace;
+    --font-body: 'DM Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+  }
+  .logo {
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logo svg { width: 20px; height: 20px; stroke: #fff; }
+  .header-title { font-family: var(--font-mono); font-size: 14px; font-weight: 700; letter-spacing: 0.05em; }
+  .header-sub { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .header-badge {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--muted2);
+    letter-spacing: 0.08em;
+  }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+  /* ── UPLOAD ZONE ── */
+  .upload-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: var(--card-radius);
+    padding: 40px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--surface);
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(124,109,250,0.08) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .upload-zone:hover, .upload-zone.drag-active {
+    border-color: var(--accent);
+    background: rgba(124,109,250,0.05);
+  }
+  .upload-icon {
+    width: 52px; height: 52px;
+    margin: 0 auto 16px;
+    background: var(--surface2);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border);
+  }
+  .upload-icon svg { width: 24px; height: 24px; stroke: var(--accent2); }
+  .upload-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+  .upload-sub { font-size: 13px; color: var(--muted); }
+  .upload-sub span { color: var(--accent2); }
+
+  /* ── TOOLBAR ── */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0 16px;
+    flex-wrap: wrap;
+  }
+  .stat-chip {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--muted2);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .stat-chip strong { color: var(--accent2); }
+  .spacer { flex: 1; }
+
+  .btn {
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .btn:hover { background: var(--surface2); border-color: var(--muted); }
+  .btn-danger { color: var(--danger); border-color: rgba(248,113,113,0.3); }
+  .btn-danger:hover { background: rgba(248,113,113,0.08); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+    font-weight: 600;
+  }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+  .btn-primary:disabled { background: var(--surface2); border-color: var(--border); color: var(--muted); cursor: not-allowed; }
+
+  /* ── PROGRESS ── */
+  .progress-wrap { margin-bottom: 16px; display: none; }
+  .progress-wrap.show { display: block; }
+  .progress-track {
+    height: 3px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+  .progress-label { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
+  /* ── PDF LINK ── */
+  .pdf-ready {
+    display: none;
+    margin-bottom: 16px;
+    background: rgba(34,197,94,0.08);
+    border: 1px solid rgba(34,197,94,0.3);
+    border-radius: var(--card-radius);
+    padding: 14px 18px;
+    align-items: center;
+    gap: 12px;
+  }
+  .pdf-ready.show { display: flex; }
+  .pdf-ready-icon { color: var(--success); font-size: 20px; }
+  .pdf-ready-text { font-size: 13px; }
+  .pdf-ready-text p { color: var(--muted2); font-size: 11px; margin-top: 2px; }
+  .pdf-link {
+    margin-left: auto;
+    padding: 8px 20px;
+    background: var(--success);
+    color: #fff;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+  }
+  .pdf-link:hover { opacity: 0.85; }
+
+  /* ── PAGES ── */
+  .pages-wrap { display: flex; flex-direction: column; gap: 24px; }
+
+  .page-block { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-radius); overflow: hidden; }
+  .page-header {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface2);
+  }
+  .page-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--accent2);
+    background: rgba(124,109,250,0.12);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .page-info { font-size: 11px; color: var(--muted); }
+  .page-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    padding: 16px;
+  }
+
+  /* ── CARD ── */
+  .card {
+    aspect-ratio: 63/88;
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+    background: var(--surface2);
+  }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .card:hover .card-overlay { opacity: 1; }
+  .card-overlay button {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: #fff;
+    font-size: 14px;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .card-overlay button:hover { background: rgba(248,113,113,0.5); }
+  .card-empty {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 6px;
+    border: 1.5px dashed var(--border);
+    border-radius: 8px;
+  }
+  .card-empty svg { opacity: 0.2; stroke: var(--muted); }
+  .card-empty span { font-size: 10px; color: var(--muted); font-family: var(--font-mono); }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 60px 24px;
+    color: var(--muted);
+  }
+  .empty-state svg { opacity: 0.15; margin-bottom: 16px; stroke: var(--muted2); }
+  .empty-state h3 { font-size: 15px; color: var(--muted2); font-weight: 500; margin-bottom: 6px; }
+  .empty-state p { font-size: 12px; }
+
+  /* ── QUALITY SELECTOR ── */
+  .quality-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 0;
+  }
+  .quality-label { font-size: 12px; color: var(--muted); }
+  .quality-opts { display: flex; gap: 6px; }
+  .q-btn {
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted2);
+    font-size: 11px;
+    font-family: var(--font-mono);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .q-btn.active {
+    background: rgba(124,109,250,0.15);
+    border-color: var(--accent);
+    color: var(--accent2);
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="2" y="3" width="8" height="11" rx="1.5"/>
+      <rect x="14" y="3" width="8" height="11" rx="1.5"/>
+      <rect x="2" y="17" width="8" height="4" rx="1"/>
+      <rect x="14" y="17" width="8" height="4" rx="1"/>
+    </svg>
+  </div>
+  <div>
+    <div class="header-title">TCG CARD GENERATOR</div>
+    <div class="header-sub">Pokemon TCG size · A4 PDF · 9 kartu/halaman</div>
+  </div>
+  <div class="header-badge">63×88mm</div>
+</header>
+
+<div class="container">
+
+  <!-- Upload -->
+  <div class="upload-zone" id="dropZone">
+    <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+    <div class="upload-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    </div>
+    <div class="upload-title">Upload gambar kartu</div>
+    <div class="upload-sub">Drag & drop atau <span>klik untuk pilih file</span> — bisa banyak sekaligus</div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="stat-chip">kartu: <strong id="totalCount">0</strong></div>
+    <div class="stat-chip">halaman: <strong id="pageCount">0</strong></div>
+
+    <div class="quality-row">
+      <span class="quality-label">kualitas:</span>
+      <div class="quality-opts">
+        <button class="q-btn" onclick="setQuality('web')" id="q-web">web</button>
+        <button class="q-btn active" onclick="setQuality('print')" id="q-print">print</button>
+        <button class="q-btn" onclick="setQuality('max')" id="q-max">max</button>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+    <button class="btn btn-danger" onclick="clearAll()" id="btnClear" style="display:none">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      Hapus semua
+    </button>
+    <button class="btn btn-primary" onclick="generatePDF()" id="btnPDF" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Generate PDF
+    </button>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel">Memproses...</div>
+  </div>
+
+  <!-- PDF Ready -->
+  <div class="pdf-ready" id="pdfReady">
+    <div class="pdf-ready-icon">✓</div>
+    <div class="pdf-ready-text">
+      <strong id="pdfReadyTitle">PDF siap didownload</strong>
+      <p>Klik tombol → buka di tab baru → Ctrl+S / Cmd+S untuk simpan</p>
+    </div>
+    <a id="pdfLink" href="#" target="_blank" class="pdf-link">Buka PDF →</a>
+  </div>
+
+  <!-- Pages -->
+  <div class="pages-wrap" id="pagesWrap">
+    <div class="empty-state" id="emptyState">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke-width="1"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <h3>Belum ada gambar</h3>
+      <p>Upload gambar di atas untuk mulai membuat print sheet kartu</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CARDS_PER_PAGE = 9;
+let images = [];
+let quality = 'print'; // web=150dpi, print=300dpi, max=300dpi+png
+
+const DPI_MAP = { web: 150, print: 300, max: 300 };
+const QUALITY_MAP = { web: 0.85, print: 0.95, max: 1.0 };
+
+function setQuality(q) {
+  quality = q;
+  document.querySelectorAll('.q-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('q-' + q).classList.add('active');
+}
+
+// Upload handlers
+const fileInput = document.getElementById('fileInput');
+const dropZone = document.getElementById('dropZone');
+
+dropZone.onclick = () => { fileInput.value = ''; fileInput.click(); };
+dropZone.ondragover = e => { e.preventDefault(); dropZone.classList.add('drag-active'); };
+dropZone.ondragleave = () => dropZone.classList.remove('drag-active');
+dropZone.ondrop = e => { e.preventDefault(); dropZone.classList.remove('drag-active'); loadFiles([...e.dataTransfer.files]); };
+fileInput.onchange = e => loadFiles([...e.target.files]);
+
+function loadFiles(files) {
+  const imgs = files.filter(f => f.type.startsWith('image/'));
+  if (!imgs.length) return;
+  let done = 0;
+  imgs.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      images.push({ src: e.target.result, name: file.name });
+      if (++done === imgs.length) render();
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function removeCard(idx) { images.splice(idx, 1); render(); }
+
+function clearAll() {
+  images = [];
+  document.getElementById('pdfReady').classList.remove('show');
+  render();
+}
+
+function render() {
+  document.getElementById('totalCount').textContent = images.length;
+  document.getElementById('pageCount').textContent = images.length === 0 ? 0 : Math.ceil(images.length / CARDS_PER_PAGE);
+  document.getElementById('btnPDF').disabled = images.length === 0;
+  document.getElementById('btnClear').style.display = images.length > 0 ? '' : 'none';
+
+  const wrap = document.getElementById('pagesWrap');
+  wrap.innerHTML = '';
+
+  if (!images.length) {
+    wrap.appendChild(document.getElementById('emptyState'));
+    return;
+  }
+
+  const totalPages = Math.ceil(images.length / CARDS_PER_PAGE);
+  for (let p = 0; p < totalPages; p++) {
+    const block = document.createElement('div');
+    block.className = 'page-block';
+
+    const hdr = document.createElement('div');
+    hdr.className = 'page-header';
+    const num = document.createElement('span');
+    num.className = 'page-num';
+    num.textContent = 'PAGE ' + (p + 1);
+    const info = document.createElement('span');
+    info.className = 'page-info';
+    info.textContent = `Kartu ${p*9+1} – ${Math.min((p+1)*9, images.length)} dari ${images.length}`;
+    hdr.appendChild(num);
+    hdr.appendChild(info);
+    block.appendChild(hdr);
+
+    const grid = document.createElement('div');
+    grid.className = 'page-grid';
+
+    for (let s = 0; s < 9; s++) {
+      const idx = p * 9 + s;
+      const card = document.createElement('div');
+      card.className = 'card';
+
+      if (idx < images.length) {
+        const img = document.createElement('img');
+        img.src = images[idx].src;
+        card.appendChild(img);
+        const ov = document.createElement('div');
+        ov.className = 'card-overlay';
+        const rb = document.createElement('button');
+        rb.innerHTML = '✕';
+        rb.title = 'Hapus kartu ' + (idx+1);
+        rb.onclick = (e) => { e.stopPropagation(); removeCard(idx); };
+        ov.appendChild(rb);
+        card.appendChild(ov);
+      } else {
+        const empty = document.createElement('div');
+        empty.className = 'card-empty';
+        empty.innerHTML = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke-width="1.2"><rect x="3" y="3" width="18" height="18" rx="3"/></svg><span>empty</span>`;
+        card.appendChild(empty);
+      }
+      grid.appendChild(card);
+    }
+    block.appendChild(grid);
+    wrap.appendChild(block);
+  }
+}
+
+async function generatePDF() {
+  if (!images.length) return;
+
+  const dpi = DPI_MAP[quality];
+  const jpegQ = QUALITY_MAP[quality];
+  const useJpeg = quality !== 'max';
+
+  const MM = dpi / 25.4;
+  const PW = Math.round(210 * MM);
+  const PH = Math.round(297 * MM);
+  const CW = Math.round(63 * MM);
+  const CH = Math.round(88 * MM);
+  const GAP = Math.round(2 * MM);
+  const MX = Math.round((PW - 3*CW - 2*GAP) / 2);
+  const MY = Math.round((PH - 3*CH - 2*GAP) / 2);
+
+  const btn = document.getElementById('btnPDF');
+  const progressWrap = document.getElementById('progressWrap');
+  const progressFill = document.getElementById('progressFill');
+  const progressLabel = document.getElementById('progressLabel');
+  const pdfReady = document.getElementById('pdfReady');
+
+  btn.disabled = true;
+  pdfReady.classList.remove('show');
+  progressWrap.classList.add('show');
+
+  const totalPages = Math.ceil(images.length / 9);
+  const pageData = [];
+
+  for (let p = 0; p < totalPages; p++) {
+    progressLabel.textContent = `Rendering halaman ${p+1} / ${totalPages}  (${dpi} DPI)...`;
+    progressFill.style.width = Math.round((p / totalPages) * 80) + '%';
+    await new Promise(r => setTimeout(r, 10));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = PW;
+    canvas.height = PH;
+    const ctx = canvas.getContext('2d');
+
+    // crisp rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, PW, PH);
+
+    for (let s = 0; s < 9; s++) {
+      const idx = p * 9 + s;
+      if (idx >= images.length) continue;
+      const col = s % 3, row = Math.floor(s / 3);
+      const x = MX + col * (CW + GAP);
+      const y = MY + row * (CH + GAP);
+
+      await new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x, y, CW, CH);
+          ctx.clip();
+          // cover fit
+          const iw = img.naturalWidth, ih = img.naturalHeight;
+          const scale = Math.max(CW / iw, CH / ih);
+          const sw = iw * scale, sh = ih * scale;
+          const dx = x + (CW - sw) / 2;
+          const dy = y + (CH - sh) / 2;
+          ctx.drawImage(img, dx, dy, sw, sh);
+          ctx.restore();
+          resolve();
+        };
+        img.onerror = resolve;
+        img.src = images[idx].src;
+      });
+    }
+
+    const mime = useJpeg ? 'image/jpeg' : 'image/png';
+    const dataURL = useJpeg ? canvas.toDataURL(mime, jpegQ) : canvas.toDataURL(mime);
+    const bin = atob(dataURL.split(',')[1]);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    pageData.push({ bytes, isJpeg: useJpeg, w: PW, h: PH });
+
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  progressLabel.textContent = 'Membangun PDF...';
+  progressFill.style.width = '90%';
+  await new Promise(r => setTimeout(r, 20));
+
+  const pdfBytes = buildPDF(pageData);
+  const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+
+  progressFill.style.width = '100%';
+  progressLabel.textContent = 'Selesai!';
+  await new Promise(r => setTimeout(r, 400));
+  progressWrap.classList.remove('show');
+
+  const sizeMB = (pdfBytes.length / 1024 / 1024).toFixed(1);
+  document.getElementById('pdfReadyTitle').textContent = `PDF siap — ${totalPages} halaman · ${images.length} kartu · ${sizeMB} MB`;
+  document.getElementById('pdfLink').href = url;
+  pdfReady.classList.add('show');
+  btn.disabled = false;
+}
+
+function buildPDF(pages) {
+  const PW_PT = 595.28, PH_PT = 841.89;
+  const enc = new TextEncoder();
+  const parts = [];
+  const offsets = {};
+  let pos = 0;
+
+  function w(str) { const b = enc.encode(str); parts.push(b); pos += b.length; }
+  function wb(bytes) { parts.push(bytes); pos += bytes.length; }
+
+  w('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
+
+  const n = pages.length;
+
+  // obj 1: catalog
+  offsets[1] = pos;
+  w('1 0 obj\n<</Type/Catalog/Pages 2 0 R>>\nendobj\n');
+
+  // obj 2: pages
+  const kids = Array.from({length:n}, (_,i) => `${3+i*3} 0 R`).join(' ');
+  offsets[2] = pos;
+  w(`2 0 obj\n<</Type/Pages/Kids [${kids}]/Count ${n}>>\nendobj\n`);
+
+  for (let i = 0; i < n; i++) {
+    const pageId = 3 + i*3;
+    const imgId  = 4 + i*3;
+    const contId = 5 + i*3;
+    const { bytes, isJpeg, w: cw, h: ch } = pages[i];
+
+    const filter = isJpeg ? '/DCTDecode' : '/FlateDecode';
+    const cs = '/DeviceRGB';
+
+    // image xobject
+    offsets[imgId] = pos;
+    w(`${imgId} 0 obj\n<</Type/XObject/Subtype/Image/Width ${cw}/Height ${ch}/ColorSpace ${cs}/BitsPerComponent 8/Filter ${filter}/Length ${bytes.length}>>\nstream\n`);
+    wb(bytes);
+    w('\nendstream\nendobj\n');
+
+    // content stream
+    const content = enc.encode(`q ${PW_PT} 0 0 ${PH_PT} 0 0 cm /Im${i} Do Q`);
+    offsets[contId] = pos;
+    w(`${contId} 0 obj\n<</Length ${content.length}>>\nstream\n`);
+    wb(content);
+    w('\nendstream\nendobj\n');
+
+    // page
+    offsets[pageId] = pos;
+    w(`${pageId} 0 obj\n<</Type/Page/Parent 2 0 R/MediaBox [0 0 ${PW_PT} ${PH_PT}]/Contents ${contId} 0 R/Resources<</XObject<</Im${i} ${imgId} 0 R>>>>>>\nendobj\n`);
+  }
+
+  const xrefPos = pos;
+  const maxId = 2 + n * 3;
+  w(`xref\n0 ${maxId+1}\n`);
+  w('0000000000 65535 f \n');
+  for (let id = 1; id <= maxId; id++) {
+    const o = offsets[id];
+    w(o !== undefined ? String(o).padStart(10,'0') + ' 00000 n \n' : '0000000000 65535 f \n');
+  }
+  w(`trailer\n<</Size ${maxId+1}/Root 1 0 R>>\nstartxref\n${xrefPos}\n%%EOF\n`);
+
+  let total = 0;
+  for (const p of parts) total += p.length;
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
+render();
+</script>
+</body>
+</html>
